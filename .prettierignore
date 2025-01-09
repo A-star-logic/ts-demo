@@ -1,0 +1,6 @@
+node_modules
+.yarn
+**/sampleFiles/*
+**/.output/*
+**/.nuxt/*
+openapi.json

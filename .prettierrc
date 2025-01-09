@@ -1,0 +1,15 @@
+{
+  "semi": true,
+  "trailingComma": "all",
+  "singleQuote": true,
+  "printWidth": 80,
+
+  "overrides": [
+    {
+      "files": [".eslintrc", "tsconfig.json", ".markdownlint.jsonc"],
+      "options": {
+        "trailingComma": "none"
+      }
+    }
+  ]
+}

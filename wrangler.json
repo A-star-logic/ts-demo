@@ -1,0 +1,9 @@
+{
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agentic-urls",
+      "database_id": "2e1f80eb-6530-43b8-9f28-bce586f26764"
+    }
+  ]
+}
