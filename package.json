@@ -5,7 +5,8 @@
   "workspaces": [
     "backend",
     "frontend",
-    "scraper"
+    "scraper",
+    "packages/*"
   ],
   "devDependencies": {
     "@ansearch/config": "^0.1.1",

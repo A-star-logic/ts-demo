@@ -1,0 +1,16 @@
+{
+  "name": "llm",
+  "private": true,
+  "dependencies": {
+    "openai": "^4.77.4"
+  },
+  "exports": {
+    "*": {
+      "workerd": "./src/*",
+      "development": "./src/*",
+      "typescript": "./src/*",
+      "types": "./src/*",
+      "default": "./dist/*"
+    }
+  }
+}

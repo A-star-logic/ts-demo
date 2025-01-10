@@ -5,6 +5,7 @@
     "dev": "yarn w:dev-tsx --env-file=../.env src/index.ts"
   },
   "dependencies": {
+    "@astarlogic/sdk": "workspace:^",
     "@azure/openai": "^2.0.0",
     "@sinclair/typebox": "^0.34.13",
     "axios": "^1.7.9",

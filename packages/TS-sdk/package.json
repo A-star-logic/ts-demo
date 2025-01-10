@@ -1,0 +1,13 @@
+{
+  "name": "@astarlogic/sdk",
+  "exports": {
+    "./memoire": {
+      "workerd": "./src/index.ts",
+      "development": "./src/index.ts",
+      "typescript": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  }
+}

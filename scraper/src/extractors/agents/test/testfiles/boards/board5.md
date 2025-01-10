@@ -1,4 +1,0 @@
-# Page not found
-The page you requested was not found
-[Powered by ](https://www.ashbyhq.com)
-[Privacy Policy](https://www.ashbyhq.com/privacy)[Security](https://www.ashbyhq.com/security)[Vulnerability Disclosure](https://www.ashbyhq.com/disclosure)

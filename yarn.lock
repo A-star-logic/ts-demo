@@ -48,6 +48,12 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@astarlogic/sdk@workspace:^, @astarlogic/sdk@workspace:packages/TS-sdk":
+  version: 0.0.0-use.local
+  resolution: "@astarlogic/sdk@workspace:packages/TS-sdk"
+  languageName: unknown
+  linkType: soft
+
 "@azure-rest/core-client@npm:^2.2.0":
   version: 2.3.1
   resolution: "@azure-rest/core-client@npm:2.3.1"
@@ -5683,6 +5689,14 @@ __metadata:
   languageName: node
   linkType: hard
 
+"llm@workspace:packages/LLM":
+  version: 0.0.0-use.local
+  resolution: "llm@workspace:packages/LLM"
+  dependencies:
+    openai: "npm:^4.77.4"
+  languageName: unknown
+  linkType: soft
+
 "locate-path@npm:^5.0.0":
   version: 5.0.0
   resolution: "locate-path@npm:5.0.0"
@@ -6233,6 +6247,28 @@ __metadata:
   bin:
     openai: bin/cli
   checksum: 10c0/438e5acbcdc592ff192f294e936c10a8b71edf898b53afacb937da45f8d4e221e041bfcc84d6174c8dcb9ed4080b32760f8d94de1fcec7ab889046f1e1173f68
+  languageName: node
+  linkType: hard
+
+"openai@npm:^4.77.4":
+  version: 4.77.4
+  resolution: "openai@npm:4.77.4"
+  dependencies:
+    "@types/node": "npm:^18.11.18"
+    "@types/node-fetch": "npm:^2.6.4"
+    abort-controller: "npm:^3.0.0"
+    agentkeepalive: "npm:^4.2.1"
+    form-data-encoder: "npm:1.7.2"
+    formdata-node: "npm:^4.3.2"
+    node-fetch: "npm:^2.6.7"
+  peerDependencies:
+    zod: ^3.23.8
+  peerDependenciesMeta:
+    zod:
+      optional: true
+  bin:
+    openai: bin/cli
+  checksum: 10c0/cd63a98ce77fb528d12745962b66b229d0ec5243c19d2796933df540b0732a3c323c205575fcfa096ecfa8e39d84e058f8942c45b5655df571bece1d7ffa7301
   languageName: node
   linkType: hard
 
@@ -7034,6 +7070,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "scraper@workspace:scraper"
   dependencies:
+    "@astarlogic/sdk": "workspace:^"
     "@azure/openai": "npm:^2.0.0"
     "@sinclair/typebox": "npm:^0.34.13"
     "@types/luxon": "npm:^3"

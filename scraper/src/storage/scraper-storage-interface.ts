@@ -1,101 +1,57 @@
-// D1 types
-import type { D1Url } from './d1/scraper-storage-d1-schemas.js';
+// libs
+import { MemoireClient } from '@astarlogic/sdk/memoire';
 
 // utils
 import { getUnsafeHash } from '../utils/scraper-utils-crypto.js';
 
-// D1
-import { getUrlsById, updateUrl } from './d1/scraper-storage-d1.js';
+if (!process.env.MEMOIRE_API_KEY) {
+  throw new Error('Please set the MEMOIRE_API_KEY env variable');
+}
+if (!process.env.MEMOIRE_URL) {
+  throw new Error('Please set the MEMOIRE_URL env variable');
+}
 
-// libs
-import { memoire } from './memoire/index.js';
+const memoire = MemoireClient({
+  apiKey: process.env.MEMOIRE_API_KEY,
+  memoireUrl: process.env.MEMOIRE_URL,
+});
+
+const urlQueue = new Map<string, 'crawled' | 'failed' | undefined>();
 
 /**
- * Filter the urls, and return only the urls that are NOT already in the database.
- *
- * This function will help determine on job boards if the crawler should look for the next page or stop
+ * Add a list of urls into the crawling queue. Duplicates and already crawled urls will be skipped.
  * @param root named parameters
- * @param root.urls the url to check
- * @returns a list of urls that d
+ * @param root.urls the urls to add
  */
-export async function filterSavedUrls({
-  urls,
-}: {
-  urls: string[];
-}): Promise<string[]> {
-  const urlsMeta = await getUrlsById({ ids: urls });
-
-  if (urlsMeta.length === 0) {
-    return urls;
+export function addUrlsToCrawlList({ urls }: { urls: string[] }): void {
+  for (const url of urls) {
+    if (!urlQueue.has(url)) {
+      urlQueue.set(url, undefined);
+    }
   }
-  if (urlsMeta.length === urls.length) {
-    return [];
-  }
-
-  const urlsAsSet = new Set(urls);
-  for (const urlInDB of urlsMeta) {
-    urlsAsSet.delete(urlInDB.id);
-  }
-
-  return [...urlsAsSet];
 }
 
 /**
- * Mark the url as a job advert and indicate the current crawler is crawling it.
- *
- * **Note** This function should be called only on unknown urls
- * @param root named parameters
- * @param root.url the url to save
- * @param root.crawlerID the crawler ID
+ * Export the url queue
+ * @returns the urls and their status
  */
-export async function markUrlAsJobAdvert({
-  crawlerID,
-  url,
-}: {
-  crawlerID: string;
-  url: string;
-}): Promise<void> {
-  const existingUrl = await getUrlsById({ ids: [url] });
-  if (existingUrl.length > 0 && existingUrl[0].urlType === 'jobBoard') {
-    return;
-  }
-  await updateUrl({
-    urlMeta: {
-      crawlerID,
-      id: url,
-      lastCrawl: null,
-      urlType: 'jobAdvert',
-    },
-  });
+export function exportUrls(): {
+  [k: string]: 'crawled' | 'failed' | undefined;
+} {
+  return Object.fromEntries(urlQueue);
 }
 
 /**
- * Save the url as a job board, indicating it can be regularly scraped in the future
- *
- * **Note** This function should be called only on unknown urls
- * @param root named parameters
- * @param root.url the url to save
- * @param root.crawlerID the crawler ID
+ * Request the next url from the crawling queue
+ * @returns the next url, undefined when all urls have been crawled
  */
-export async function markUrlAsJobBoard({
-  crawlerID,
-  url,
-}: {
-  crawlerID: string;
-  url: string;
-}): Promise<void> {
-  const existingUrl = await getUrlsById({ ids: [url] });
-  if (existingUrl.length > 0 && existingUrl[0].urlType === 'jobBoard') {
-    return;
-  }
-  await updateUrl({
-    urlMeta: {
-      crawlerID,
-      id: url,
-      lastCrawl: null,
-      urlType: 'jobBoard',
-    },
+export async function getNextUrl(): Promise<string | undefined> {
+  const notCrawled = [...urlQueue].find(([_, isCrawled]) => {
+    return !isCrawled;
   });
+  if (notCrawled) {
+    return notCrawled[0];
+  }
 }
 
 /**
@@ -111,7 +67,7 @@ export async function savePage({
   content: string;
   url: string;
 }): Promise<void> {
-  await memoire.ingestRaw({
+  await memoire.ingest.raw({
     documents: [
       {
         content,
@@ -125,24 +81,19 @@ export async function savePage({
 }
 
 /**
- * Set the url as crawled, add a timestamp and set its type
+ * Set the url as crawled
  * @param root named parameters
  * @param root.url the url to save
- * @param root.urlType the url type
  */
-export async function setUrlAsCrawled({
-  url,
-  urlType,
-}: {
-  url: string;
-  urlType: D1Url['urlType'];
-}): Promise<void> {
-  await updateUrl({
-    urlMeta: {
-      crawlerID: null,
-      id: url,
-      lastCrawl: Date.now(),
-      urlType,
-    },
-  });
+export async function setUrlAsCrawled({ url }: { url: string }): Promise<void> {
+  urlQueue.set(url, 'crawled');
+}
+
+/**
+ * Set the url as failed
+ * @param root named parameters
+ * @param root.url the url to save
+ */
+export async function setUrlAsFailed({ url }: { url: string }): Promise<void> {
+  urlQueue.set(url, 'failed');
 }
