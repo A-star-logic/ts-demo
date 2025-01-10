@@ -1,5 +1,8 @@
+// node
+import { URL } from 'node:url';
+
 // libs
-import puppeteer, { type Browser, type Page } from 'puppeteer';
+import { type Browser, launch, type Page } from 'puppeteer';
 
 let browser: Browser;
 let page: Page;
@@ -29,7 +32,11 @@ export async function getBody(): Promise<string> {
           aTags.forEach((aTag) => {
             const href = aTag.getAttribute('href');
             if (!href?.startsWith('http') && href) {
-              aTag.setAttribute('href', origin + '/' + href);
+              if (href.startsWith('/')) {
+                aTag.setAttribute('href', origin + href);
+              } else {
+                aTag.setAttribute('href', origin + '/' + href);
+              }
             }
           });
           // remove svg elements and images
@@ -59,6 +66,46 @@ export async function getBody(): Promise<string> {
 }
 
 /**
+ * Get the links and their text or aria label
+ * @param root named parameters
+ * @param root.domainFilter filter the links by domain
+ * @returns the body cleaned from style and scripts
+ */
+export async function getLinks({
+  domainFilter,
+}: {
+  domainFilter: string | undefined;
+}): Promise<{
+  [href: string]: string | undefined;
+}> {
+  const aTags = await page.$$('a');
+  const linkInfo: { [href: string]: string | undefined } = {};
+  for (const aTag of aTags) {
+    const href = await aTag.evaluate((element) => {
+      return element.href;
+    });
+    const cleanedHref = cleanHref({ href });
+
+    const innerText = await aTag.evaluate((element) => {
+      return element.textContent;
+    });
+
+    const ariaLabel = await aTag.evaluate((element) => {
+      return element.getAttribute('aria-label');
+    });
+
+    if (domainFilter && !href.includes(domainFilter)) {
+      continue;
+    }
+    linkInfo[cleanedHref] =
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- the logic does not work with nullish coalescing and 0 length strings
+      innerText?.trim() || ariaLabel?.trim() || undefined;
+  }
+
+  return linkInfo;
+}
+
+/**
  * Init the browser
  * @returns A browser page
  */
@@ -66,7 +113,7 @@ export async function initBrowser(): Promise<void> {
   console.log('Starting browser');
 
   // Launch a headless browser instance
-  browser = await puppeteer.launch({
+  browser = await launch({
     headless: true, // Set to false if you want to see the browser UI
     // args: ['--no-sandbox', '--disable-setuid-sandbox'], // Useful for deployment environments like Docker
   });
@@ -87,4 +134,18 @@ export async function navigate({ url }: { url: string }): Promise<void> {
   // Navigate to the target URL and wait for the page to load
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   console.log('Loaded ' + url);
+}
+
+/**
+ * Clean an href from fragments and trailing slashes
+ * @param root named parameters
+ * @param root.href the href to clean
+ * @returns the url cleaned
+ */
+function cleanHref({ href }: { href: string }): string {
+  const hrefWithoutFragment = href.split('#')[0];
+  if (new URL(hrefWithoutFragment).pathname === '/') {
+    return hrefWithoutFragment.slice(0, -1);
+  }
+  return hrefWithoutFragment;
 }

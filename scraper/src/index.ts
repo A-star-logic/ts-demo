@@ -4,6 +4,6 @@ import { crawl } from './core/scraper-core-crawler.js';
 
 await initBrowser();
 
-await crawl({ url: 'https://www.google.com' });
+await crawl({ urls: ['http://localhost:3000'] });
 
 await closeBrowser();

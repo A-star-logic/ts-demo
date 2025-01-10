@@ -1,16 +1,21 @@
 {
-  "name": "llm",
+  "name": "@demo-pkg/llm",
   "private": true,
-  "dependencies": {
-    "openai": "^4.77.4"
-  },
   "exports": {
-    "*": {
+    "./*": {
       "workerd": "./src/*",
       "development": "./src/*",
       "typescript": "./src/*",
       "types": "./src/*",
       "default": "./dist/*"
-    }
+    },
+    "./call": {
+      "workerd": "./src/models/index.ts",
+      "development": "./src/models/index.ts",
+      "typescript": "./src/models/index.ts",
+      "types": "./src/models/index.ts",
+      "default": "./dist/models/index.js"
+    },
+    "./package.json": "./package.json"
   }
 }

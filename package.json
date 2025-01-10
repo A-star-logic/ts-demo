@@ -1,5 +1,6 @@
 {
-  "name": "TS-Demo",
+  "name": "ts-demo",
+  "private": true,
   "packageManager": "yarn@4.6.0",
   "type": "module",
   "workspaces": [

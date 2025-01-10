@@ -16,17 +16,25 @@ const memoire = MemoireClient({
   memoireUrl: process.env.MEMOIRE_URL,
 });
 
-const urlQueue = new Map<string, 'crawled' | 'failed' | undefined>();
+const urlQueue = new Map<
+  string,
+  'blocked' | 'crawled' | 'failed' | 'not found' | undefined
+>();
 
 /**
  * Add a list of urls into the crawling queue. Duplicates and already crawled urls will be skipped.
  * @param root named parameters
  * @param root.urls the urls to add
  */
-export function addUrlsToCrawlList({ urls }: { urls: string[] }): void {
+export async function addUrlsToCrawlList({
+  urls,
+}: {
+  urls: string[];
+}): Promise<void> {
   for (const url of urls) {
     if (!urlQueue.has(url)) {
       urlQueue.set(url, undefined);
+      console.log('Added `' + url + '` to queue');
     }
   }
 }
@@ -36,7 +44,7 @@ export function addUrlsToCrawlList({ urls }: { urls: string[] }): void {
  * @returns the urls and their status
  */
 export function exportUrls(): {
-  [k: string]: 'crawled' | 'failed' | undefined;
+  [k: string]: string | undefined;
 } {
   return Object.fromEntries(urlQueue);
 }
@@ -81,6 +89,15 @@ export async function savePage({
 }
 
 /**
+ * Set the url as Blocked
+ * @param root named parameters
+ * @param root.url the url to save
+ */
+export async function setUrlAsBlocked({ url }: { url: string }): Promise<void> {
+  urlQueue.set(url, 'blocked');
+}
+
+/**
  * Set the url as crawled
  * @param root named parameters
  * @param root.url the url to save
@@ -96,4 +113,17 @@ export async function setUrlAsCrawled({ url }: { url: string }): Promise<void> {
  */
 export async function setUrlAsFailed({ url }: { url: string }): Promise<void> {
   urlQueue.set(url, 'failed');
+}
+
+/**
+ * Set the url as not found
+ * @param root named parameters
+ * @param root.url the url to save
+ */
+export async function setUrlAsNotFound({
+  url,
+}: {
+  url: string;
+}): Promise<void> {
+  urlQueue.set(url, 'not found');
 }

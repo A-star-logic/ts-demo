@@ -20,8 +20,6 @@
 
     "skipLibCheck": true,
 
-    // required by wink nlp
-    //"esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
   "include": ["**/*.ts", "**/*.vue", "vitest.config.js"],

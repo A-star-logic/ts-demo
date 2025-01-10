@@ -6,18 +6,12 @@
   },
   "dependencies": {
     "@astarlogic/sdk": "workspace:^",
-    "@azure/openai": "^2.0.0",
-    "@sinclair/typebox": "^0.34.13",
-    "axios": "^1.7.9",
-    "cheerio": "^1.0.0",
-    "luxon": "^3.5.0",
+    "@demo-pkg/llm": "workspace:^",
     "node-html-markdown": "^1.3.0",
-    "openai": "^4.77.0",
     "puppeteer": "^23.11.1"
   },
   "type": "module",
   "devDependencies": {
-    "@types/luxon": "^3",
     "@types/puppeteer": "^7.0.4"
   }
 }

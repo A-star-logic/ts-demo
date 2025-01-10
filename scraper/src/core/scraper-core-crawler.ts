@@ -2,57 +2,68 @@
 import { NodeHtmlMarkdown } from 'node-html-markdown';
 
 // agents
-import { extractRedundantData } from '../agents/scraper-agents-extract.js';
+import {
+  detectPageStatus,
+  extractRelevantData,
+} from '../agents/scraper-agents-extract.js';
 
 // browser
-import { getBody, navigate } from '../browser/scraper-browser.js';
+import { getBody, getLinks, navigate } from '../browser/scraper-browser.js';
 
 // storage
 import {
+  addUrlsToCrawlList,
   exportUrls,
   getNextUrl,
   savePage,
+  setUrlAsBlocked,
   setUrlAsCrawled,
   setUrlAsFailed,
+  setUrlAsNotFound,
 } from '../storage/scraper-storage-interface.js';
 
 /**
  * Crawl a domain from a given url until all the urls have been scraped
  * @param root named parameters
- * @param root.url the url to start crawling from
+ * @param root.urls the urls to start crawling from
  */
-export async function crawl({ url }: { url: string }): Promise<void> {
-  // first step is to create a sample, and extract duplicated data
-  const sample: { [key: string]: string } = {};
-  for (let iteration = 0; iteration < 10; iteration++) {
-    await navigate({ url });
-    const content = await scrape();
-    if (content) {
-      sample[url] = content;
-    } else {
-      await setUrlAsFailed({ url });
-    }
-  }
-  const redundantData = await extractRedundantData({
-    sample: Object.values(sample),
-  });
-  // for each page in the sample, clean them and store them
+export async function crawl({ urls }: { urls: string[] }): Promise<void> {
+  await addUrlsToCrawlList({ urls });
+  const domain = new URL(urls[0]).host;
 
-  // then we simply extract every url sequentially until there are no more
-  let nextUrl: string | undefined = url;
+  let nextUrl = await getNextUrl();
   while (nextUrl) {
     await navigate({ url: nextUrl });
+
     const markdown = await scrape();
-    if (markdown) {
-      const content = await clean({ markdown, redundantData });
+    const status = await detectPageStatus({ markdown });
+    switch (status) {
+      case 'blocked': {
+        await setUrlAsBlocked({ url: nextUrl });
+        break;
+      }
+      case 'not found': {
+        await setUrlAsNotFound({ url: nextUrl });
+        break;
+      }
+      case undefined: {
+        await setUrlAsFailed({ url: nextUrl });
+        break;
+      }
+    }
+
+    if (status === 'valid') {
+      const content = await extractRelevantData({ markdown });
       if (content) {
         await savePage({ content, url: nextUrl });
         await setUrlAsCrawled({ url: nextUrl });
-        nextUrl = await getNextUrl();
-        continue;
+      } else {
+        await setUrlAsFailed({ url: nextUrl });
       }
     }
-    await setUrlAsFailed({ url: nextUrl });
+
+    await processLinks({ domain });
+
     nextUrl = await getNextUrl();
   }
 
@@ -61,29 +72,24 @@ export async function crawl({ url }: { url: string }): Promise<void> {
 }
 
 /**
- * Remove strings from a text
+ * Process all the links from the current page, and attempt to find new ones that may not be "links" such as buttons
  * @param root named parameters
- * @param root.markdown the markdown to clean
- * @param root.redundantData A list of strings to remove from the markdown
- * @returns the cleaned text
+ * @param root.domain the domain to keep the crawler on
  */
-async function clean({
-  markdown,
-  redundantData,
+export async function processLinks({
+  domain,
 }: {
-  markdown: string;
-  redundantData: string[];
-}): Promise<string | undefined> {
-  throw new Error('Not implemented');
+  domain: string;
+}): Promise<void> {
+  const hardLinks = await getLinks({ domainFilter: domain });
+  await addUrlsToCrawlList({ urls: Object.keys(hardLinks) });
 }
 
 /**
- * Scrape an url
- * @param root named parameters
- * @param root.url the url to scrape
+ * Scrape an url, clean the content and return a markdown string with only the interesting information
  * @returns the markdown of the page
  */
-async function scrape(): Promise<string | undefined> {
+async function scrape(): Promise<string> {
   const html = await getBody();
   const markdown = NodeHtmlMarkdown.translate(html);
   const clean = markdown
@@ -92,5 +98,3 @@ async function scrape(): Promise<string | undefined> {
     .trim();
   return clean.replaceAll(/ +/g, ' ').trim();
 }
-
-async function processLinks(): Promise<void> {}
