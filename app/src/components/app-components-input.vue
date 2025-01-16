@@ -1,8 +1,5 @@
 <template>
-  <form
-    class="input-box"
-    @submit.prevent="pipelineStore.runPipeline({ query: input })"
-  >
+  <form class="input-box" @submit.prevent="runPipeline()">
     <input v-model="input" type="" placeholder="Ask anything..." />
   </form>
 </template>
@@ -16,6 +13,14 @@ import { usePipelineStore } from '../stores/app-stores-pipeline';
 
 const pipelineStore = usePipelineStore();
 const input = ref<string>('');
+
+/**
+ * Reset the pipeline and run it
+ */
+async function runPipeline(): Promise<void> {
+  pipelineStore.$reset();
+  await pipelineStore.runPipeline({ query: input.value });
+}
 </script>
 
 <style lang="css" scoped>

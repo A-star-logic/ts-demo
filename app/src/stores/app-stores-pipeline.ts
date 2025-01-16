@@ -7,6 +7,7 @@ import type {
   BuildSearchesBody,
   BuildSearchesResponse,
 } from '../server/api/build-searches.post.ts';
+import type { ExtractBody } from '../server/api/extract.post.ts';
 import type {
   FilterDocumentsBody,
   FilterDocumentsResponse,
@@ -19,28 +20,22 @@ import type {
   PostSearchBody,
   PostSearchResponse,
 } from '../server/api/search.post.ts';
-import type {
-  SummarizeBody,
-  SummarizeResponse,
-} from '../server/api/summarize.post.ts';
 
 interface PipelineState {
   /* eslint-disable perfectionist/sort-interfaces -- better have them ordered by call order */
   buildSearchesLoading: boolean | undefined;
   buildSearchesError: boolean;
-  buildSearchesResponse: BuildSearchesResponse | undefined;
+  proposedSearches: string[] | undefined;
   searchResultsLoading: boolean | undefined;
   searchResultsError: boolean;
-  searchResults: PostSearchResponse | undefined;
+  searchResultsLength: number | undefined;
   filteredLoading: boolean | undefined;
   filteredError: boolean;
-  filteredResults: FilterDocumentsResponse['filtered'] | undefined;
   filteredNumber: number | undefined;
   relevantDocuments: PostSearchResponse | undefined;
-  summariesLoading: boolean | undefined;
-  summariesError: boolean;
-  summaries: SummarizeResponse['summaries'] | undefined;
-  filteredSummaries: string[] | undefined;
+  extractLoading: boolean | undefined;
+  extractError: boolean;
+  extractNumber: number | undefined;
   responseLoading: boolean | undefined;
   responseError: boolean;
   response: GenerateAnswerResponse['reply'] | undefined;
@@ -52,6 +47,7 @@ interface PipelineState {
  * @param root named parameters
  * @param root.query the query
  * @param root.store Pinia store
+ * @returns the intent and the proposed queries
  */
 async function buildQueries({
   query,
@@ -59,7 +55,7 @@ async function buildQueries({
 }: {
   query: string;
   store: PipelineState;
-}): Promise<void> {
+}): Promise<undefined | { intent: string; proposedSearches: string[] }> {
   store.buildSearchesLoading = true;
   store.buildSearchesError = false;
   try {
@@ -70,65 +66,132 @@ async function buildQueries({
         method: 'POST',
       },
     );
+    store.buildSearchesLoading = false;
     if (!buildResponse.proposedSearches || !buildResponse.intent) {
       console.error('No search intent generated');
       store.buildSearchesError = true;
       return;
     }
-    store.buildSearchesResponse = buildResponse;
+    return {
+      intent: buildResponse.intent,
+      proposedSearches: buildResponse.proposedSearches,
+    };
   } catch (error) {
     console.error(error);
     store.buildSearchesError = true;
-  } finally {
     store.buildSearchesLoading = false;
+  }
+}
+
+/**
+ * Extract the relevant information from the results that have been kept
+ * @param root named parameters
+ * @param root.intent the intent
+ * @param root.queries the queries
+ * @param root.relevantDocuments the relevant documents
+ * @param root.store Pinia store
+ * @returns the extracted documents
+ */
+async function extract({
+  intent,
+  queries,
+  relevantDocuments,
+  store,
+}: {
+  intent: string;
+  queries: string[];
+  relevantDocuments: PostSearchResponse;
+  store: PipelineState;
+}): Promise<string[] | undefined> {
+  store.extractLoading = true;
+  store.extractError = false;
+  store.extractNumber = 0;
+  try {
+    const extractedDocuments = await Promise.all(
+      relevantDocuments.map(async (result) => {
+        const extracted = await $fetch<string>('/api/extract', {
+          body: {
+            document: result.content,
+            intent,
+            queries,
+          } satisfies ExtractBody,
+          method: 'POST',
+        });
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- defined above
+        store.extractNumber = store.extractNumber! + 1;
+        return extracted;
+      }),
+    );
+    store.extractLoading = false;
+    return extractedDocuments;
+  } catch (error) {
+    console.error(error);
+    store.extractError = true;
+    store.extractLoading = false;
   }
 }
 
 /**
  * Filter the search results using agents
  * @param root named parameters
- * @param root.query the query
+ * @param root.intent the search intent
+ * @param root.queries the queries
+ * @param root.searchResults the search results from a previous step
  * @param root.store Pinia store
+ * @returns the filtered results
  */
 async function filter({
-  query,
+  intent,
+  queries,
+  searchResults,
   store,
 }: {
-  query: string;
+  intent: string;
+  queries: string[];
+  searchResults: PostSearchResponse;
   store: PipelineState;
-}): Promise<void> {
+}): Promise<PostSearchResponse | undefined> {
   store.filteredLoading = true;
   store.filteredError = false;
-  const intent = store.buildSearchesResponse?.intent ?? query;
-  const searchResults = store.searchResults;
-  if (!searchResults) {
-    console.error('No search results to filter');
-    return;
-  }
+  store.filteredNumber = 0;
+
   try {
-    const { filtered } = await $fetch<FilterDocumentsResponse>('/api/filter', {
-      body: {
-        intent,
-        searchResults,
-      } satisfies FilterDocumentsBody,
-      method: 'POST',
+    const filtered = await Promise.all(
+      searchResults.map(async (result) => {
+        const { decision } = await $fetch<FilterDocumentsResponse>(
+          '/api/filter',
+          {
+            body: {
+              intent,
+              queries,
+              searchResult: result,
+            } satisfies FilterDocumentsBody,
+            method: 'POST',
+          },
+        );
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- we defined it right above
+        store.filteredNumber = store.filteredNumber! + 1;
+        if (decision === 'relevant') {
+          return result;
+        }
+        return undefined;
+      }),
+    );
+
+    const relevantDocuments = filtered.filter((document) => {
+      return document !== undefined;
     });
-    store.filteredResults = filtered;
-    const relevantDocuments = searchResults.filter((result) => {
-      return filtered.find((f) => {
-        return f.id === result.documentID && f.classification === 'relevant';
-      });
-    });
+
+    store.filteredLoading = false;
     if (relevantDocuments.length === 0) {
       console.error('No documents kept');
       store.filteredError = true;
       return;
     }
-    store.relevantDocuments = relevantDocuments;
+    return relevantDocuments;
   } catch (error) {
     console.error(error);
     store.filteredError = true;
-  } finally {
     store.filteredLoading = false;
   }
 }
@@ -136,49 +199,48 @@ async function filter({
 /**
  * Generate the response
  * @param root named parameters
+ * @param root.documents the documents to add to the prompt
+ * @param root.intent the intent
  * @param root.query the query
  * @param root.store Pinia store
+ * @returns the response
  */
 async function generateResponse({
+  documents,
+  intent,
   query,
   store,
 }: {
+  documents: string[];
+  intent: string;
   query: string;
   store: PipelineState;
-}): Promise<void> {
+}): Promise<string | undefined> {
   store.responseLoading = true;
   store.responseError = false;
-  if (!store.buildSearchesResponse?.intent) {
-    console.error('No search intent');
-    return;
-  }
-  if (!store.filteredSummaries) {
-    console.error('No filtered summaries');
-    return;
-  }
 
   try {
     const { reply } = await $fetch<GenerateAnswerResponse>(
       '/api/generate-answer',
       {
         body: {
-          intent: store.buildSearchesResponse.intent,
+          documents,
+          intent,
           query,
-          summaries: store.filteredSummaries,
         } satisfies GenerateAnswerBody,
         method: 'POST',
       },
     );
+    store.responseLoading = false;
     if (!reply) {
       console.error('No response from generate answer');
       store.responseError = true;
       return;
     }
-    store.response = reply;
+    return reply;
   } catch (error) {
     console.error(error);
     store.responseError = true;
-  } finally {
     store.responseLoading = false;
   }
 }
@@ -186,80 +248,33 @@ async function generateResponse({
 /**
  * Search for relevant documents
  * @param root named parameters
- * @param root.query the query
+ * @param root.queries a list of queries for searching
  * @param root.store Pinia store
+ * @returns the search results
  */
 async function search({
-  query,
+  queries,
   store,
 }: {
-  query: string;
+  queries: string[];
   store: PipelineState;
-}): Promise<void> {
+}): Promise<PostSearchResponse | undefined> {
   store.searchResultsLoading = true;
   store.searchResultsError = false;
-  const proposedSearches = store.buildSearchesResponse?.proposedSearches ?? [];
+
   try {
     const searchResults = await $fetch<PostSearchResponse>('/api/search', {
       body: {
-        queries: [...proposedSearches, query],
+        queries,
       } satisfies PostSearchBody,
       method: 'POST',
     });
-    store.searchResults = searchResults;
+    store.searchResultsLoading = false;
+    return searchResults;
   } catch (error) {
     console.log(error);
     store.searchResultsError = true;
-  } finally {
     store.searchResultsLoading = false;
-  }
-}
-
-/**
- * Summarize the results that have been kept
- * @param root named parameters
- * @param root.store Pinia store
- */
-async function summarize({ store }: { store: PipelineState }): Promise<void> {
-  store.summariesLoading = true;
-  store.summariesError = false;
-
-  if (!store.buildSearchesResponse?.intent) {
-    console.error('No search intent');
-    return;
-  }
-  if (!store.relevantDocuments) {
-    console.error('No search results to summarizes');
-    return;
-  }
-  try {
-    const { summaries } = await $fetch<SummarizeResponse>('/api/summarize', {
-      body: {
-        intent: store.buildSearchesResponse.intent,
-        searchResults: store.relevantDocuments,
-      } satisfies SummarizeBody,
-      method: 'POST',
-    });
-
-    const filteredSummaries = summaries.filter((summary): summary is string => {
-      // eslint-disable-next-line sonarjs/prefer-single-boolean-return -- this way is clearer
-      if (
-        !summary ||
-        summary.length === 0 ||
-        summary.includes('There is no information')
-      ) {
-        return false;
-      }
-      return true;
-    });
-
-    store.summaries = summaries;
-    store.filteredSummaries = filteredSummaries;
-  } catch (error) {
-    console.error(error);
-    store.summariesError = true;
-  } finally {
-    store.summariesLoading = false;
   }
 }
 
@@ -273,33 +288,54 @@ export const usePipelineStore = defineStore('pipeline', {
     async runPipeline({ query }: { query: string }) {
       if (!query || query.trim().length === 0) return;
 
-      await buildQueries({ query, store: this });
-      if (this.buildSearchesError) {
+      const buildQueriesResponse = await buildQueries({ query, store: this });
+      if (!buildQueriesResponse) {
+        return;
+      }
+      this.proposedSearches = buildQueriesResponse.proposedSearches;
+      const queries = [...buildQueriesResponse.proposedSearches, query];
+      const { intent } = buildQueriesResponse;
+
+      const searchResults = await search({ queries, store: this });
+      if (!searchResults) {
+        return;
+      }
+      this.searchResultsLength = searchResults.length;
+
+      const relevantDocuments = await filter({
+        intent,
+        queries,
+        searchResults,
+        store: this,
+      });
+      if (!relevantDocuments) {
+        return;
+      }
+      this.relevantDocuments = relevantDocuments;
+
+      const extractedDocuments = await extract({
+        intent,
+        queries,
+        relevantDocuments,
+        store: this,
+      });
+      if (!extractedDocuments) {
         return;
       }
 
-      await search({ query, store: this });
-      if (this.searchResultsError) {
-        return;
-      }
-
-      await filter({ query, store: this });
-      if (this.filteredError) {
-        return;
-      }
-
-      await summarize({ store: this });
-      if (this.summariesError) {
-        return;
-      }
-
-      await generateResponse({ query, store: this });
+      const response = await generateResponse({
+        documents: extractedDocuments,
+        intent,
+        query,
+        store: this,
+      });
+      this.response = response;
     },
   },
 
   getters: {
     sources: (state) => {
-      if (state.searchResults && state.relevantDocuments) {
+      if (state.relevantDocuments) {
         const links: string[] = [];
         for (const document of state.relevantDocuments) {
           // @ts-expect-error it's here, trust me bro
@@ -317,22 +353,20 @@ export const usePipelineStore = defineStore('pipeline', {
     return {
       buildSearchesError: false,
       buildSearchesLoading: undefined,
-      buildSearchesResponse: undefined,
+      extractError: false,
+      extractLoading: undefined,
+      extractNumber: undefined,
       filteredError: false,
       filteredLoading: undefined,
       filteredNumber: undefined,
-      filteredResults: undefined,
-      filteredSummaries: undefined,
+      proposedSearches: undefined,
       relevantDocuments: undefined,
       response: undefined,
       responseError: false,
       responseLoading: undefined,
-      searchResults: undefined,
       searchResultsError: false,
+      searchResultsLength: undefined,
       searchResultsLoading: undefined,
-      summaries: undefined,
-      summariesError: false,
-      summariesLoading: undefined,
     };
   },
 });

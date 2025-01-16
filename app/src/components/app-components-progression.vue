@@ -1,9 +1,7 @@
 <template>
   <div
     class="progression-box"
-    v-if="
-      pipelineStore.buildSearchesLoading || pipelineStore.buildSearchesResponse
-    "
+    v-if="pipelineStore.buildSearchesLoading || pipelineStore.proposedSearches"
   >
     <h2>Searching for:</h2>
     <div v-if="true" class="progression-block">
@@ -13,8 +11,7 @@
       </div>
       <div class="progression-line">
         <div
-          v-for="proposition of pipelineStore.buildSearchesResponse
-            ?.proposedSearches"
+          v-for="proposition of pipelineStore.proposedSearches"
           class="proposition"
         >
           <Icon name="fa-solid:search" class="icon" />
@@ -26,18 +23,19 @@
         <Icon name="eos-icons:loading" class="icon" />
         Loading...
       </div>
-      <div class="with-icon" v-if="pipelineStore.searchResults">
+      <div class="with-icon" v-if="pipelineStore.searchResultsLength">
         <Icon name="fa-solid:check-circle" class="icon" />
-        Found {{ pipelineStore.searchResults.length }} results
+        Found {{ pipelineStore.searchResultsLength }} results
       </div>
     </div>
 
-    <template v-if="pipelineStore.searchResults">
+    <template v-if="pipelineStore.searchResultsLength">
       <h2>Filtering the results</h2>
       <div v-if="true || true" class="progression-block">
         <div class="with-icon" v-if="pipelineStore.filteredLoading">
           <Icon name="eos-icons:loading" class="icon" />
-          Loading...
+          Loading... ({{ pipelineStore.filteredNumber }} /
+          {{ pipelineStore.searchResultsLength }})
         </div>
         <div class="with-icon" v-if="pipelineStore.relevantDocuments">
           <Icon name="fa-solid:check-circle" class="icon" />
@@ -50,20 +48,37 @@
       <h2>Generating a summary</h2>
       <div class="progression-block">
         <div class="reading">
-          <div class="with-icon" v-if="pipelineStore.summariesLoading">
-            <Icon name="eos-icons:loading" class="icon" />
-            Reading the documents...
+          <div class="with-icon">
+            <Icon
+              name="eos-icons:loading"
+              class="icon"
+              v-if="pipelineStore.extractLoading === true"
+            />
+            <Icon
+              name="fa-solid:check-circle"
+              class="icon"
+              v-if="pipelineStore.extractLoading === false"
+            />
+            Reading the documents... ({{ pipelineStore.extractNumber }} /
+            {{ pipelineStore.relevantDocuments.length }})
           </div>
-          <div class="with-icon" v-if="pipelineStore.summaries">
-            <Icon name="fa-solid:check-circle" class="icon" />
-            Reading the documents...
-          </div>
-          <div class="with-icon" v-if="pipelineStore.responseLoading">
-            <Icon name="eos-icons:loading" class="icon" />
-            Wrapping up...
-          </div>
-          <div class="with-icon" v-if="pipelineStore.response">
-            <Icon name="fa-solid:check-circle" class="icon" />
+          <div
+            class="with-icon"
+            v-if="
+              pipelineStore.extractNumber ===
+              pipelineStore.relevantDocuments.length
+            "
+          >
+            <Icon
+              name="eos-icons:loading"
+              class="icon"
+              v-if="pipelineStore.responseLoading === true"
+            />
+            <Icon
+              name="fa-solid:check-circle"
+              class="icon"
+              v-if="pipelineStore.responseLoading === false"
+            />
             Wrapping up...
           </div>
         </div>

@@ -8,10 +8,11 @@ import type { PostSearchResponse } from './search.post.js';
 
 export interface FilterDocumentsBody {
   intent: string;
-  searchResults: PostSearchResponse;
+  queries: string[];
+  searchResult: PostSearchResponse[number];
 }
 export interface FilterDocumentsResponse {
-  filtered: { classification: 'not relevant' | 'relevant'; id: string }[];
+  decision: 'not relevant' | 'relevant';
 }
 
 export default defineEventHandler(async (event) => {
@@ -19,10 +20,12 @@ export default defineEventHandler(async (event) => {
 
   if (
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- we are specifically planning for empty requests
-    !body.searchResults ||
-    body.searchResults.length === 0 ||
+    !body.searchResult ||
     !body.intent ||
-    body.intent.length === 0
+    body.intent.length === 0 ||
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- we are specifically planning for empty requests
+    !body.queries ||
+    body.queries.length === 0
   ) {
     throw createError({
       message: 'Missing parameters for filter',
@@ -30,41 +33,28 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  let documents = '';
-  for (const result of body.searchResults) {
-    // todo: this may need to be updated depending on the use case
-    const relevantData = result.highlights ?? result.content;
-    documents += `${result.documentID} --- ${relevantData.replaceAll(/[\n\r]+/g, '')}\n`;
-  }
-
   const { reply } = await completions({
     messages: [
       {
         content: `
-You will be given a user's intent and a list of results in the format ID --- content.
-You need to verify for each result if it is relevant to the intent, and if the result has information that could answer it.
-Explain your decision every time.
+You will be given a user's intent, associated queries, and a document.
 
-Your response will be formatted as:
-ID1 --- relevant. your decision
-ID2 --- not relevant. your decision
-
-You do not need to add any other information or summary.
+Your first goal is to find all the relevant information in this document that can answer the user's question.
+Your second goal is to classify if this document is relevant or not (say "relevant" or "not relevant"), and explain your decision.
   `,
         role: 'system',
       },
       {
         content: `
 The user's intent is: ${body.intent}
-
-The documents are:
-
-${documents}
+The user's queries are: ${body.queries.join(' ')}
+The document:
+${body.searchResult.content}
 `,
         role: 'user',
       },
     ],
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
   });
 
   if (!reply) {
@@ -79,13 +69,10 @@ ${documents}
     messages: [
       {
         content: `
-You will be given a list of results with opinions.
-All those results will be in the format:
-ID1 --- relevant. some text
-ID2 --- not relevant. some text
+You will be given the output of another LLM.
+Your task is to sort if the document is relevant or not based on their reasoning.
 
-Your task is to extract the IDs and their classification into a JSON object
-${JSONPrompt({ keys: '"results":[{"id":"id","classification":"relevant"|"not relevant"}]' })}
+${JSONPrompt({ keys: '"decision":"relevant"|"not relevant"}' })}
   `,
         role: 'system',
       },
@@ -94,7 +81,7 @@ ${JSONPrompt({ keys: '"results":[{"id":"id","classification":"relevant"|"not rel
         role: 'user',
       },
     ],
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
   });
   if (!classification) {
     throw createError({
@@ -103,11 +90,9 @@ ${JSONPrompt({ keys: '"results":[{"id":"id","classification":"relevant"|"not rel
     });
   }
   try {
-    const parsed = JSON.parse(classification) as {
-      results: FilterDocumentsResponse['filtered'];
-    };
+    const parsed = JSON.parse(classification) as FilterDocumentsResponse;
     return {
-      filtered: parsed.results,
+      decision: parsed.decision,
     } satisfies FilterDocumentsResponse;
   } catch (error) {
     console.error(error);
