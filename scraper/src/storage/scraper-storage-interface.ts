@@ -75,6 +75,7 @@ export async function savePage({
   content: string;
   url: string;
 }): Promise<void> {
+  console.log('Saving page to Memoire');
   await memoire.ingest.raw({
     documents: [
       {
@@ -86,44 +87,22 @@ export async function savePage({
       },
     ],
   });
+  console.log('Saved page to Memoire');
 }
 
 /**
- * Set the url as Blocked
+ * Set the url status
  * @param root named parameters
  * @param root.url the url to save
+ * @param root.status the status of the crawling
  */
-export async function setUrlAsBlocked({ url }: { url: string }): Promise<void> {
-  urlQueue.set(url, 'blocked');
-}
-
-/**
- * Set the url as crawled
- * @param root named parameters
- * @param root.url the url to save
- */
-export async function setUrlAsCrawled({ url }: { url: string }): Promise<void> {
-  urlQueue.set(url, 'crawled');
-}
-
-/**
- * Set the url as failed
- * @param root named parameters
- * @param root.url the url to save
- */
-export async function setUrlAsFailed({ url }: { url: string }): Promise<void> {
-  urlQueue.set(url, 'failed');
-}
-
-/**
- * Set the url as not found
- * @param root named parameters
- * @param root.url the url to save
- */
-export async function setUrlAsNotFound({
+export async function setUrlStatus({
+  status,
   url,
 }: {
+  status: 'blocked' | 'crawled' | 'failed' | 'not found';
   url: string;
 }): Promise<void> {
-  urlQueue.set(url, 'not found');
+  console.log(`Set url status to ${status}`);
+  urlQueue.set(url, status);
 }

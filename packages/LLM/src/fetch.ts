@@ -20,6 +20,7 @@ export async function enhancedFetch<T>(
 
       if (!response.ok) {
         console.error(response);
+        console.error(response.body);
         throw new Error(`${response.status}`);
       }
 

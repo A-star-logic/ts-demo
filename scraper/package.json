@@ -2,7 +2,7 @@
   "name": "scraper",
   "private": true,
   "scripts": {
-    "dev": "yarn w:dev-tsx --env-file=../.env src/index.ts"
+    "dev": "yarn w:dev-tsx-no-watch --env-file=../.env src/index.ts"
   },
   "dependencies": {
     "@astarlogic/sdk": "workspace:^",

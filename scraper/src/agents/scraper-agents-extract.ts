@@ -6,13 +6,14 @@ import { attemptJSONParsing } from '../utils/scraper-utils-json.js';
  * Detect the page status, and categorize it
  * @param root named parameters
  * @param root.markdown the page in markdown
- * @returns 'blocked', 'not found' or 'valid'; undefined in the case of an error
+ * @returns 'blocked', 'not found' or 'valid'; 'failed' in the case of an error (instead of undefined)
  */
 export async function detectPageStatus({
   markdown,
 }: {
   markdown: string;
-}): Promise<'blocked' | 'not found' | 'valid' | undefined> {
+}): Promise<'blocked' | 'failed' | 'not found' | 'valid'> {
+  console.log('detecting page status');
   const { reply } = await completions({
     json: true,
     messages: [
@@ -41,8 +42,15 @@ ${JSONPrompt({ keys: 'category' })}
     const json = await attemptJSONParsing<{
       category: 'blocked' | 'not found' | 'valid';
     }>({ json: reply });
-    return json?.category;
+    console.log(`status is ${json?.category}`);
+    if (!json) {
+      return 'failed';
+    }
+    return json.category;
   }
+
+  console.log('No reply from Model');
+  return 'failed';
 }
 
 /**
@@ -59,6 +67,7 @@ export async function extractRelevantData({
 }: {
   markdown: string;
 }): Promise<string | undefined> {
+  console.log('extracting relevant data');
   const { reply } = await completions({
     messages: [
       {
@@ -84,5 +93,6 @@ Example of data to remove:
     ],
     model: 'gpt-4o-mini',
   });
+  console.log('done extracting relevant data');
   return reply;
 }

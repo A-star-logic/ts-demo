@@ -4,8 +4,7 @@
   "packageManager": "yarn@4.6.0",
   "type": "module",
   "workspaces": [
-    "backend",
-    "frontend",
+    "app",
     "scraper",
     "packages/*"
   ],
@@ -20,10 +19,11 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",
-    "wrangler": "^3.99.0"
+    "wrangler": "^3.102.0"
   },
   "scripts": {
     "w:dev-tsx": "cd $INIT_CWD && tsx watch --conditions=development",
+    "w:dev-tsx-no-watch": "cd $INIT_CWD && tsx --conditions=development",
     "test": "vitest",
     "lint": "yarn lint:eslint ; yarn lint:tsc ; yarn lint:prettier",
     "lint:eslint": "eslint .",

@@ -15,7 +15,7 @@ export async function deleteDocuments({
 }): Promise<void> {
   const start = Date.now();
 
-  const response = await fetchRequest('/search/documents', {
+  const response = await fetchRequest('/memoire/document/bulk', {
     body: JSON.stringify({ documentIDs }),
     method: 'DELETE',
   });

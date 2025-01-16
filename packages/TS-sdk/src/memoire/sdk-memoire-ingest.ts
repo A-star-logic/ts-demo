@@ -21,7 +21,7 @@ export async function ingestRawDocuments({
 }): Promise<void> {
   const start = Date.now();
 
-  const response = await fetchRequest('/search/ingest/raw', {
+  const response = await fetchRequest('/memoire/ingest/raw', {
     body: JSON.stringify({ documents }),
     method: 'POST',
   });

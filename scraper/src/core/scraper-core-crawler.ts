@@ -13,13 +13,9 @@ import { getBody, getLinks, navigate } from '../browser/scraper-browser.js';
 // storage
 import {
   addUrlsToCrawlList,
-  exportUrls,
   getNextUrl,
   savePage,
-  setUrlAsBlocked,
-  setUrlAsCrawled,
-  setUrlAsFailed,
-  setUrlAsNotFound,
+  setUrlStatus,
 } from '../storage/scraper-storage-interface.js';
 
 /**
@@ -31,66 +27,59 @@ export async function crawl({ urls }: { urls: string[] }): Promise<void> {
   await addUrlsToCrawlList({ urls });
   const domain = new URL(urls[0]).host;
 
-  let nextUrl = await getNextUrl();
-  while (nextUrl) {
-    await navigate({ url: nextUrl });
+  let url = await getNextUrl();
+  while (url) {
+    const carryOn = await navigate({ url });
+    if (!carryOn) {
+      await setUrlStatus({ status: 'failed', url });
+      url = await getNextUrl();
+      continue;
+    }
 
     const markdown = await scrape();
+    if (!markdown) {
+      await setUrlStatus({ status: 'failed', url });
+      url = await getNextUrl();
+      continue;
+    }
+
     const status = await detectPageStatus({ markdown });
-    switch (status) {
-      case 'blocked': {
-        await setUrlAsBlocked({ url: nextUrl });
-        break;
-      }
-      case 'not found': {
-        await setUrlAsNotFound({ url: nextUrl });
-        break;
-      }
-      case undefined: {
-        await setUrlAsFailed({ url: nextUrl });
-        break;
-      }
+    if (status !== 'valid') {
+      await setUrlStatus({ status, url });
+      url = await getNextUrl();
+      continue;
     }
 
-    if (status === 'valid') {
-      const content = await extractRelevantData({ markdown });
-      if (content) {
-        await savePage({ content, url: nextUrl });
-        await setUrlAsCrawled({ url: nextUrl });
-      } else {
-        await setUrlAsFailed({ url: nextUrl });
-      }
+    const content = await extractRelevantData({ markdown });
+    if (content) {
+      await savePage({ content, url });
+      await setUrlStatus({ status: 'crawled', url });
+    } else {
+      await setUrlStatus({ status: 'failed', url });
     }
 
-    await processLinks({ domain });
+    const hardLinks = await getLinks({ domainFilter: domain });
+    if (!hardLinks) {
+      await setUrlStatus({ status: 'failed', url });
+      url = await getNextUrl();
+      continue;
+    }
+    await addUrlsToCrawlList({ urls: Object.keys(hardLinks) });
 
-    nextUrl = await getNextUrl();
+    url = await getNextUrl();
   }
-
-  const report = exportUrls();
-  console.log(report);
-}
-
-/**
- * Process all the links from the current page, and attempt to find new ones that may not be "links" such as buttons
- * @param root named parameters
- * @param root.domain the domain to keep the crawler on
- */
-export async function processLinks({
-  domain,
-}: {
-  domain: string;
-}): Promise<void> {
-  const hardLinks = await getLinks({ domainFilter: domain });
-  await addUrlsToCrawlList({ urls: Object.keys(hardLinks) });
 }
 
 /**
  * Scrape an url, clean the content and return a markdown string with only the interesting information
  * @returns the markdown of the page
  */
-async function scrape(): Promise<string> {
+async function scrape(): Promise<string | undefined> {
   const html = await getBody();
+  if (!html) {
+    return undefined;
+  }
+
   const markdown = NodeHtmlMarkdown.translate(html);
   const clean = markdown
     // replace duplicate characters, avoid letter, numbers and slashes https://regex101.com/r/ufaBTA/1
