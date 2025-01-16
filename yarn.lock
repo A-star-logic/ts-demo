@@ -4421,7 +4421,7 @@ __metadata:
     "@pinia/testing": "npm:^0.1.3"
     "@types/markdown-it": "npm:^14"
     "@vue/test-utils": "npm:^2.4.5"
-    happy-dom: "npm:^13.9.0"
+    happy-dom: "npm:^15.10.2"
     markdown-it: "npm:^14.1.0"
     nitro-cloudflare-dev: "npm:^0.2.1"
     nuxt: "npm:^3.13.2"
@@ -7836,14 +7836,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"happy-dom@npm:^13.9.0":
-  version: 13.10.1
-  resolution: "happy-dom@npm:13.10.1"
+"happy-dom@npm:^15.10.2":
+  version: 15.11.7
+  resolution: "happy-dom@npm:15.11.7"
   dependencies:
     entities: "npm:^4.5.0"
     webidl-conversions: "npm:^7.0.0"
     whatwg-mimetype: "npm:^3.0.0"
-  checksum: 10c0/bbe9edafde6622a8ab485f5576c3eb210caa1e083c176282322385f57535506092480ea62c139a71a64fcdb0027be97776670609fefd428745b4282d7211b174
+  checksum: 10c0/22b08cac20192b08edf2e9c857ceeda8333a3301c4b5965a9550787b00db60d6d107c726390bd45a35305cd12ab086abd656bf957a408be0fcdc9fcd389f1973
   languageName: node
   linkType: hard
 
